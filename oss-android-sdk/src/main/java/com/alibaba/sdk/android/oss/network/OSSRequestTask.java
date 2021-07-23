@@ -134,11 +134,18 @@ public class OSSRequestTask<T extends OSSResult> implements Callable<T> {
                         ParcelFileDescriptor parcelFileDescriptor = null;
                         try {
                             parcelFileDescriptor = context.getApplicationContext().getContentResolver().openFileDescriptor(message.getUploadUri(), "r");
-                            length = parcelFileDescriptor.getStatSize();
+                            if (parcelFileDescriptor != null) {
+                                length = parcelFileDescriptor.getStatSize();
+                            }
+                        } catch (Exception e) {
+                            throw new ClientException("file not found!" + (e != null ? e.toString() : null));
                         } finally {
                             if (parcelFileDescriptor != null) {
                                 parcelFileDescriptor.close();
                             }
+                        }
+                        if (length <= 0) {
+                            throw new ClientException("the length of file is 0!");
                         }
                     } else if (message.getContent() != null) {
                         inputStream = message.getContent();
