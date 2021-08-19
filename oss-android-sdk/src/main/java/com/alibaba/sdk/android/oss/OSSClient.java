@@ -528,8 +528,7 @@ public class OSSClient implements OSS {
     }
 
     @Override
-    public void abortResumableUpload(ResumableUploadRequest request) throws IOException {
-
+    public void abortResumableUpload(ResumableUploadRequest request) throws IOException, ClientException{
         mOss.abortResumableUpload(request);
     }
 

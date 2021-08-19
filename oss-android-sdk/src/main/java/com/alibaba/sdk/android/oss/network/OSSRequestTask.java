@@ -1,5 +1,7 @@
 package com.alibaba.sdk.android.oss.network;
 
+import android.content.ContentProviderClient;
+import android.content.ContentResolver;
 import android.os.ParcelFileDescriptor;
 
 import com.alibaba.sdk.android.oss.ClientException;
@@ -30,7 +32,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
 import java.util.zip.CheckedInputStream;
 
 import okhttp3.Call;
@@ -74,6 +75,9 @@ public class OSSRequestTask<T extends OSSResult> implements Callable<T> {
         Exception exception = null;
         Call call = null;
 
+        ContentProviderClient providerClient = null;
+        InputStream inputStream = null;
+        ParcelFileDescriptor parcelFileDescriptor = null;
         try {
             if (context.getApplicationContext() != null) {
                 OSSLog.logInfo(OSSUtils.buildBaseLogInfo(context.getApplicationContext()));
@@ -116,7 +120,6 @@ public class OSSRequestTask<T extends OSSResult> implements Callable<T> {
                 case POST:
                 case PUT:
                     OSSUtils.assertTrue(contentType != null, "Content type can't be null when upload!");
-                    InputStream inputStream = null;
                     String stringBody = null;
                     long length = 0;
                     if (message.getUploadData() != null) {
@@ -130,23 +133,16 @@ public class OSSRequestTask<T extends OSSResult> implements Callable<T> {
                             throw new ClientException("the length of file is 0!");
                         }
                     } else if (message.getUploadUri() != null) {
-                        inputStream = context.getApplicationContext().getContentResolver().openInputStream(message.getUploadUri());
-                        ParcelFileDescriptor parcelFileDescriptor = null;
-                        try {
-                            parcelFileDescriptor = context.getApplicationContext().getContentResolver().openFileDescriptor(message.getUploadUri(), "r");
-                            if (parcelFileDescriptor != null) {
-                                length = parcelFileDescriptor.getStatSize();
-                            }
-                        } catch (Exception e) {
-                            throw new ClientException("file not found!" + (e != null ? e.toString() : null));
-                        } finally {
-                            if (parcelFileDescriptor != null) {
-                                parcelFileDescriptor.close();
-                            }
+                        ContentResolver contentResolver = context.getApplicationContext().getContentResolver();
+                        providerClient = contentResolver.acquireContentProviderClient(message.getUploadUri());
+                        parcelFileDescriptor = providerClient.openFile(message.getUploadUri(), "r");
+                        if (parcelFileDescriptor != null) {
+                            length = parcelFileDescriptor.getStatSize();
                         }
                         if (length <= 0) {
                             throw new ClientException("the length of file is 0!");
                         }
+                        inputStream = contentResolver.openInputStream(message.getUploadUri());
                     } else if (message.getContent() != null) {
                         inputStream = message.getContent();
                         length = message.getContentLength();
@@ -219,6 +215,16 @@ public class OSSRequestTask<T extends OSSResult> implements Callable<T> {
                 e.printStackTrace();
             }
             exception = new ClientException(e.getMessage(), e);
+        } finally {
+            if (inputStream != null) {
+                inputStream.close();
+            }
+            if (providerClient != null) {
+                providerClient.release();
+            }
+            if (parcelFileDescriptor != null) {
+                parcelFileDescriptor.close();
+            }
         }
 
         if (exception == null && (responseMessage.getStatusCode() == 203 || responseMessage.getStatusCode() >= 300)) {

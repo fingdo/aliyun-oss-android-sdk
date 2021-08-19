@@ -1,8 +1,10 @@
 package com.alibaba.sdk.android.oss.internal;
 
-import android.content.res.Resources;
+import android.content.ContentProviderClient;
+import android.content.ContentResolver;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
+import android.os.RemoteException;
 
 import com.alibaba.sdk.android.oss.ClientException;
 import com.alibaba.sdk.android.oss.ServiceException;
@@ -24,8 +26,6 @@ import com.alibaba.sdk.android.oss.network.ExecutionContext;
 
 import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
@@ -176,11 +176,16 @@ public abstract class BaseMultipartUploadTask<Request extends MultipartUploadReq
 
         } else if (mRequest.getUploadUri() != null) {
             mUploadUri = mRequest.getUploadUri();
+            ContentProviderClient providerClient = null;
             ParcelFileDescriptor mUploadFileDescriptor = null;
             try {
-                mUploadFileDescriptor = mContext.getApplicationContext().getContentResolver().openFileDescriptor(mUploadUri, "r");
+                ContentResolver resolver = mContext.getApplicationContext().getContentResolver();
+                providerClient = resolver.acquireContentProviderClient(mUploadUri);
+                mUploadFileDescriptor = providerClient.openFile(mUploadUri, "r");
                 mFileLength = mUploadFileDescriptor.getStatSize();
             } catch (IOException e) {
+                throw new ClientException(e.getMessage(), e, true);
+            } catch (RemoteException e) {
                 throw new ClientException(e.getMessage(), e, true);
             } finally {
                 try {
@@ -188,6 +193,13 @@ public abstract class BaseMultipartUploadTask<Request extends MultipartUploadReq
                         mUploadFileDescriptor.close();
                     }
                 } catch (IOException e) {
+                    OSSLog.logThrowable2Local(e);
+                }
+                try {
+                    if (providerClient != null) {
+                        providerClient.release();
+                    }
+                } catch (Exception e) {
                     OSSLog.logThrowable2Local(e);
                 }
             }

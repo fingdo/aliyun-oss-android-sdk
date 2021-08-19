@@ -289,7 +289,7 @@ class OSSImpl implements OSS {
 
     @Override
     public DeleteBucketLifecycleResult deleteBucketLifecycle(DeleteBucketLifecycleRequest request) throws ClientException, ServiceException {
-        return internalRequestOperation.deleteBucketLifecycle(request,null).getResult();
+        return internalRequestOperation.deleteBucketLifecycle(request, null).getResult();
     }
 
     @Override
@@ -569,8 +569,7 @@ class OSSImpl implements OSS {
     }
 
     @Override
-    public void abortResumableUpload(ResumableUploadRequest request) throws IOException {
-
+    public void abortResumableUpload(ResumableUploadRequest request) throws IOException, ClientException {
         extensionRequestOperation.abortResumableUpload(request);
     }
 

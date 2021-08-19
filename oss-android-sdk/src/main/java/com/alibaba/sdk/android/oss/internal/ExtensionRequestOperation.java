@@ -1,13 +1,17 @@
 package com.alibaba.sdk.android.oss.internal;
 
+import android.content.ContentProviderClient;
+import android.content.ContentResolver;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.os.RemoteException;
 
 import com.alibaba.sdk.android.oss.ClientException;
 import com.alibaba.sdk.android.oss.ServiceException;
 import com.alibaba.sdk.android.oss.callback.OSSCompletedCallback;
 import com.alibaba.sdk.android.oss.common.OSSConstants;
 import com.alibaba.sdk.android.oss.common.OSSLog;
+import com.alibaba.sdk.android.oss.common.OSSLogToFileUtils;
 import com.alibaba.sdk.android.oss.common.utils.BinaryUtil;
 import com.alibaba.sdk.android.oss.common.utils.OSSUtils;
 import com.alibaba.sdk.android.oss.model.AbortMultipartUploadRequest;
@@ -61,7 +65,7 @@ public class ExtensionRequestOperation {
         }
     }
 
-    public void abortResumableUpload(ResumableUploadRequest request) throws IOException {
+    public void abortResumableUpload(ResumableUploadRequest request) throws IOException, ClientException {
         setCRC64(request);
 
         if (!OSSUtils.isEmptyString(request.getRecordDirectory())) {
@@ -70,10 +74,19 @@ public class ExtensionRequestOperation {
             if (uploadFilePath != null) {
                 fileMd5 = BinaryUtil.calculateMd5Str(uploadFilePath);
             } else {
-                ParcelFileDescriptor parcelFileDescriptor = apiOperation.getApplicationContext().getContentResolver().openFileDescriptor(request.getUploadUri(), "r");
+                ContentProviderClient providerClient = null;
+                ParcelFileDescriptor parcelFileDescriptor = null;
                 try {
+                    ContentResolver contentResolver = apiOperation.getApplicationContext().getContentResolver();
+                    providerClient = contentResolver.acquireContentProviderClient(request.getUploadUri());
+                    parcelFileDescriptor = providerClient.openFile(request.getUploadUri(), "r");
                     fileMd5 = BinaryUtil.calculateMd5Str(parcelFileDescriptor.getFileDescriptor());
+                } catch (RemoteException e) {
+                    throw new ClientException(e.getMessage(), e, true);
                 } finally {
+                    if (providerClient != null) {
+                        providerClient.release();
+                    }
                     if (parcelFileDescriptor != null) {
                         parcelFileDescriptor.close();
                     }

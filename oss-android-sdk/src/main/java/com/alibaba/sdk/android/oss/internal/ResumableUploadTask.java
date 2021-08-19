@@ -1,6 +1,9 @@
 package com.alibaba.sdk.android.oss.internal;
 
+import android.content.ContentProviderClient;
+import android.content.ContentResolver;
 import android.os.ParcelFileDescriptor;
+import android.os.RemoteException;
 import android.text.TextUtils;
 
 import com.alibaba.sdk.android.oss.ClientException;
@@ -67,10 +70,19 @@ public class ResumableUploadTask extends BaseMultipartUploadTask<ResumableUpload
             String fileMd5 = null;
             if (mUploadUri != null) {
                 OSSLog.logDebug("[initUploadId] - mUploadFilePath : " + mUploadUri.getPath());
-                ParcelFileDescriptor parcelFileDescriptor = mContext.getApplicationContext().getContentResolver().openFileDescriptor(mUploadUri, "r");
+                ContentProviderClient providerClient = null;
+                ParcelFileDescriptor parcelFileDescriptor = null;
                 try {
+                    ContentResolver contentResolver = mContext.getApplicationContext().getContentResolver();
+                    providerClient = contentResolver.acquireContentProviderClient(mUploadUri);
+                    parcelFileDescriptor = providerClient.openFile(mUploadUri, "r");
                     fileMd5 = BinaryUtil.calculateMd5Str(parcelFileDescriptor.getFileDescriptor());
+                } catch (RemoteException e) {
+                    throw new ClientException(e.getMessage(), e, true);
                 } finally {
+                    if (providerClient != null) {
+                        providerClient.release();
+                    }
                     if (parcelFileDescriptor != null) {
                         parcelFileDescriptor.close();
                     }
