@@ -26,6 +26,7 @@ import com.alibaba.sdk.android.oss.network.ExecutionContext;
 
 import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
@@ -226,6 +227,8 @@ public abstract class BaseMultipartUploadTask<Request extends MultipartUploadReq
 
         RandomAccessFile raf = null;
         InputStream inputStream = null;
+        ContentProviderClient providerClient = null;
+        ParcelFileDescriptor fileDescriptor = null;
         BufferedInputStream bufferedInputStream = null;
         try {
 
@@ -243,7 +246,10 @@ public abstract class BaseMultipartUploadTask<Request extends MultipartUploadReq
             byte[] partContent = new byte[byteCount];
             long skip = readIndex * mRequest.getPartSize();
             if (mUploadUri != null) {
-                inputStream = mContext.getApplicationContext().getContentResolver().openInputStream(mUploadUri);
+                ContentResolver resolver = mContext.getApplicationContext().getContentResolver();
+                providerClient = resolver.acquireContentProviderClient(mUploadUri);
+                fileDescriptor = providerClient.openFile(mUploadUri, "r");
+                inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
                 bufferedInputStream = new BufferedInputStream(inputStream);
                 bufferedInputStream.skip(skip);
                 bufferedInputStream.read(partContent, 0, byteCount);
@@ -298,6 +304,12 @@ public abstract class BaseMultipartUploadTask<Request extends MultipartUploadReq
                     bufferedInputStream.close();
                 if (inputStream != null)
                     inputStream.close();
+                if (fileDescriptor != null) {
+                    fileDescriptor.close();
+                }
+                if (providerClient != null) {
+                    providerClient.release();
+                }
             } catch (IOException e) {
                 OSSLog.logThrowable2Local(e);
             }

@@ -283,6 +283,8 @@ public class SequenceUploadTask extends BaseMultipartUploadTask<ResumableUploadR
 
         RandomAccessFile raf = null;
         InputStream inputStream = null;
+        ContentProviderClient providerClient = null;
+        ParcelFileDescriptor fileDescriptor = null;
         BufferedInputStream bufferedInputStream = null;
         UploadPartRequest uploadPartRequest = null;
         try {
@@ -298,7 +300,10 @@ public class SequenceUploadTask extends BaseMultipartUploadTask<ResumableUploadR
             byte[] partContent = new byte[byteCount];
 
             if (mUploadUri != null) {
-                inputStream = mContext.getApplicationContext().getContentResolver().openInputStream(mUploadUri);
+                ContentResolver resolver = mContext.getApplicationContext().getContentResolver();
+                providerClient = resolver.acquireContentProviderClient(mUploadUri);
+                fileDescriptor = providerClient.openFile(mUploadUri, "r");
+                inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
                 bufferedInputStream = new BufferedInputStream(inputStream);
                 bufferedInputStream.skip(skip);
                 bufferedInputStream.read(partContent, 0, byteCount);
@@ -362,6 +367,12 @@ public class SequenceUploadTask extends BaseMultipartUploadTask<ResumableUploadR
                     inputStream.close();
                 if (bufferedInputStream != null)
                     bufferedInputStream.close();
+                if (fileDescriptor != null) {
+                    fileDescriptor.close();
+                }
+                if (providerClient != null) {
+                    providerClient.release();
+                }
             } catch (IOException e) {
                 OSSLog.logThrowable2Local(e);
             }

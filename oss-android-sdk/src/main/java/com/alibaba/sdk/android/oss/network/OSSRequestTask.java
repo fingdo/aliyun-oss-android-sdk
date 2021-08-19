@@ -142,7 +142,7 @@ public class OSSRequestTask<T extends OSSResult> implements Callable<T> {
                         if (length <= 0) {
                             throw new ClientException("the length of file is 0!");
                         }
-                        inputStream = contentResolver.openInputStream(message.getUploadUri());
+                        inputStream = new FileInputStream(parcelFileDescriptor.getFileDescriptor());
                     } else if (message.getContent() != null) {
                         inputStream = message.getContent();
                         length = message.getContentLength();
