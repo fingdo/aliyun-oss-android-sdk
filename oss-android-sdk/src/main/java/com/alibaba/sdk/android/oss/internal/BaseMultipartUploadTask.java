@@ -246,6 +246,7 @@ public abstract class BaseMultipartUploadTask<Request extends MultipartUploadReq
             byte[] partContent = new byte[byteCount];
             long skip = readIndex * mRequest.getPartSize();
             if (mUploadUri != null) {
+                OSSLog.logDebug("00000:", mUploadUri.toString());
                 ContentResolver resolver = mContext.getApplicationContext().getContentResolver();
                 providerClient = resolver.acquireContentProviderClient(mUploadUri);
                 fileDescriptor = providerClient.openFile(mUploadUri, "r");
